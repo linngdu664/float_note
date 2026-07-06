@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using FloatNote.ViewModels;
 
@@ -13,9 +15,14 @@ public partial class FloatingBallWindow : Window
     private const double EdgeHeight = 92;
     private const double EdgeThreshold = 22;
     private const double ClickMoveTolerance = 4;
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpShowWindow = 0x0040;
 
     private readonly MainViewModel _viewModel;
-    private readonly Action<double, double> _openMainWindow;
+    private readonly Action _toggleMainWindow;
     private readonly Action _exitApplication;
     private readonly CurrentTodosPreviewWindow _previewWindow;
     private System.Windows.Point _dragMouseStart;
@@ -27,24 +34,29 @@ public partial class FloatingBallWindow : Window
     public FloatingBallWindow(
         MainViewModel viewModel,
         CurrentTodosPreviewWindow previewWindow,
-        Action<double, double> openMainWindow,
+        Action toggleMainWindow,
         Action exitApplication)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _previewWindow = previewWindow;
-        _openMainWindow = openMainWindow;
+        _toggleMainWindow = toggleMainWindow;
         _exitApplication = exitApplication;
 
         Left = viewModel.FloatingBall.Left;
         Top = viewModel.FloatingBall.Top;
         ApplyEdgeShape();
+        Deactivated += (_, _) => Dispatcher.BeginInvoke(BringAboveMainWindow);
     }
 
     public void BringAboveMainWindow()
     {
-        Topmost = false;
         Topmost = true;
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+        {
+            SetWindowPos(handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+        }
     }
 
     private void Shell_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -94,7 +106,8 @@ public partial class FloatingBallWindow : Window
             return;
         }
 
-        _openMainWindow(Left, Top);
+        _toggleMainWindow();
+        BringAboveMainWindow();
     }
 
     private void Shell_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
@@ -213,4 +226,14 @@ public partial class FloatingBallWindow : Window
             new System.Windows.Point(screen.WorkingArea.Right, screen.WorkingArea.Bottom));
         return new Rect(topLeft, bottomRight);
     }
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
 }

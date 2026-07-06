@@ -31,7 +31,10 @@ public partial class App : System.Windows.Application
 
         _mainWindow = new MainWindow(viewModel, ShutdownApplication);
         _previewWindow = new CurrentTodosPreviewWindow(viewModel);
-        _floatingBallWindow = new FloatingBallWindow(viewModel, _previewWindow, ToggleMainWindowAt, ShutdownApplication);
+        _floatingBallWindow = new FloatingBallWindow(viewModel, _previewWindow, ToggleMainWindow, ShutdownApplication);
+        _mainWindow.Activated += (_, _) => BringFloatingBallAboveMainWindow();
+        _mainWindow.PreviewMouseDown += (_, _) => BringFloatingBallAboveMainWindow();
+        _mainWindow.PreviewMouseUp += (_, _) => BringFloatingBallAboveMainWindow();
         _trayService = new TrayService(
             showWindow: ShowMainWindow,
             hideWindow: () => _mainWindow?.Hide(),
@@ -99,21 +102,10 @@ public partial class App : System.Windows.Application
         _mainWindow.Show();
         _mainWindow.WindowState = WindowState.Normal;
         _mainWindow.Activate();
-        _floatingBallWindow?.BringAboveMainWindow();
+        BringFloatingBallAboveMainWindow();
     }
 
-    private void ShowMainWindowAt(double left, double top)
-    {
-        if (_mainWindow is null)
-        {
-            return;
-        }
-
-        _mainWindow.ShowAt(left, top);
-        _floatingBallWindow?.BringAboveMainWindow();
-    }
-
-    private void ToggleMainWindowAt(double left, double top)
+    private void ToggleMainWindow()
     {
         if (_mainWindow is null)
         {
@@ -123,11 +115,23 @@ public partial class App : System.Windows.Application
         if (_mainWindow.IsVisible)
         {
             _mainWindow.Hide();
-            _floatingBallWindow?.BringAboveMainWindow();
+            BringFloatingBallAboveMainWindow();
             return;
         }
 
-        ShowMainWindowAt(left, top);
+        ShowMainWindow();
+    }
+
+    private void BringFloatingBallAboveMainWindow()
+    {
+        if (_floatingBallWindow is null)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(
+            () => _floatingBallWindow.BringAboveMainWindow(),
+            DispatcherPriority.ApplicationIdle);
     }
 
     private async void ShutdownApplication()
