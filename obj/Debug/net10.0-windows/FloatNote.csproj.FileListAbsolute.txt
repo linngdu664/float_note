@@ -25,3 +25,4 @@ C:\Users\66477\Documents\float_note\obj\Debug\net10.0-windows\CurrentTodosPrevie
 C:\Users\66477\Documents\float_note\obj\Debug\net10.0-windows\FloatingBallWindow.baml
 C:\Users\66477\Documents\float_note\obj\Debug\net10.0-windows\CurrentTodosPreviewWindow.g.cs
 C:\Users\66477\Documents\float_note\obj\Debug\net10.0-windows\FloatingBallWindow.g.cs
+C:\Users\66477\Documents\float_note\obj\Debug\net10.0-windows\FloatNote.sourcelink.json
