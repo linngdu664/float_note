@@ -1,4 +1,6 @@
-# FloatNote / 浮签
+# FloatNote
+
+Other Language: [中文](docs/zh-CH/README.md)
 
 FloatNote is a lightweight Windows floating note and todo app built with WPF.
 
