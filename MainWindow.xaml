@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="浮签"
+        Icon="Assets/floatnote.ico"
         Width="520"
         Height="760"
         MinWidth="420"

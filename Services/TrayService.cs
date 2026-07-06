@@ -17,7 +17,7 @@ public sealed class TrayService : IDisposable
 
         _notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = LoadAppIcon(),
             Text = "浮签 FloatNote",
             ContextMenuStrip = menu,
             Visible = true
@@ -31,5 +31,19 @@ public sealed class TrayService : IDisposable
         _notifyIcon.Visible = false;
         _notifyIcon.ContextMenuStrip?.Dispose();
         _notifyIcon.Dispose();
+    }
+
+    private static Icon LoadAppIcon()
+    {
+        var resource = System.Windows.Application.GetResourceStream(
+            new Uri("pack://application:,,,/Assets/floatnote.ico"));
+        if (resource is null)
+        {
+            return SystemIcons.Application;
+        }
+
+        using var stream = resource.Stream;
+        using var icon = new Icon(stream);
+        return (Icon)icon.Clone();
     }
 }
