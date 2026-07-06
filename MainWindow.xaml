@@ -1,0 +1,287 @@
+<Window x:Class="FloatNote.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="浮签"
+        Width="520"
+        Height="760"
+        MinWidth="420"
+        MinHeight="620"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Border BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            Background="{DynamicResource WindowBackgroundBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="22" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="{DynamicResource AccentSoftBrush}"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Margin="12,0,6,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="浮签"
+                               VerticalAlignment="Center"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="{Binding ThemeButtonText}"
+                                MinWidth="54"
+                                MinHeight="26"
+                                Padding="8,0"
+                                Margin="0,0,6,0"
+                                Command="{Binding ToggleThemeCommand}" />
+                        <Button Content="-"
+                                Width="30"
+                                MinHeight="26"
+                                Padding="0"
+                                Margin="0,0,4,0"
+                                ToolTip="隐藏"
+                                Click="HideButton_Click" />
+                        <Button Content="x"
+                                Width="30"
+                                MinHeight="26"
+                                Padding="0"
+                                ToolTip="隐藏到托盘"
+                                Click="CloseButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="1.65*" />
+                </Grid.RowDefinitions>
+
+                <TextBox Grid.Row="0"
+                         Text="{Binding NoteText, UpdateSourceTrigger=PropertyChanged}"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         FontSize="14"
+                         MinHeight="140"
+                         SpellCheck.IsEnabled="True" />
+
+                <GridSplitter Grid.Row="1"
+                              Height="6"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Center"
+                              Background="{DynamicResource BorderBrush}"
+                              ResizeBehavior="PreviousAndNext"
+                              ResizeDirection="Rows"
+                              ShowsPreview="True" />
+
+                <Border Grid.Row="2"
+                        Background="{DynamicResource PanelBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        Padding="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="待办"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <CheckBox Grid.Column="1"
+                                      Content="显示已完成"
+                                      IsChecked="{Binding ShowCompletedTodos}"
+                                      FontSize="12" />
+                        </Grid>
+
+                        <ListBox Grid.Row="2"
+                                 ItemsSource="{Binding VisibleTodos}"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.CanContentScroll="False">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="TodoCard"
+                                            Margin="0,0,0,8"
+                                            Padding="0"
+                                            Background="{DynamicResource InputBackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="4" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border x:Name="CurrentBar"
+                                                    Background="Transparent" />
+
+                                            <Grid Grid.Column="1" Margin="9">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <Grid MouseLeftButtonDown="TodoHeader_MouseLeftButtonDown"
+                                                      Cursor="Hand">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <CheckBox IsChecked="{Binding IsCompleted}"
+                                                              VerticalAlignment="Center"
+                                                              Margin="0,0,8,0" />
+
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Title}"
+                                                               TextWrapping="Wrap"
+                                                               VerticalAlignment="Center"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+
+                                                    <Border Grid.Column="2"
+                                                            Margin="8,0,0,0"
+                                                            Padding="6,2"
+                                                            Background="{DynamicResource AccentSoftBrush}"
+                                                            BorderBrush="{DynamicResource AccentBrush}"
+                                                            BorderThickness="1"
+                                                            Visibility="{Binding IsCurrent, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <TextBlock Text="当前"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource AccentBrush}" />
+                                                    </Border>
+
+                                                    <Button Grid.Column="3"
+                                                            Content="删除"
+                                                            Margin="8,0,0,0"
+                                                            MinHeight="24"
+                                                            Padding="8,0"
+                                                            Command="{Binding DataContext.DeleteTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}" />
+                                                </Grid>
+
+                                                <Grid Grid.Row="1"
+                                                      Margin="24,10,0,0"
+                                                      Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="6" />
+                                                        <RowDefinition Height="Auto" MinHeight="150" />
+                                                        <RowDefinition Height="8" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+
+                                                    <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                                                             FontWeight="SemiBold" />
+
+                                                    <TextBox Grid.Row="2"
+                                                             Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
+                                                             AcceptsReturn="True"
+                                                             TextWrapping="Wrap"
+                                                             MinHeight="150"
+                                                             VerticalScrollBarVisibility="Auto" />
+
+                                                    <StackPanel Grid.Row="4" Orientation="Vertical">
+                                                        <TextBlock Text="{Binding CreatedAt, StringFormat=创建时间：{0:yyyy-MM-dd HH:mm}}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource MutedTextBrush}" />
+                                                        <TextBlock Text="{Binding CompletedAt, StringFormat=完成时间：{0:yyyy-MM-dd HH:mm}}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource MutedTextBrush}"
+                                                                   Visibility="{Binding IsCompleted, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                            <Setter TargetName="CurrentBar" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                            <Setter TargetName="TodoCard" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Grid Grid.Row="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="6" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Text="{Binding NewTodoTitle, UpdateSourceTrigger=PropertyChanged}"
+                                     KeyDown="NewTodoTextBox_KeyDown"
+                                     MinHeight="32" />
+                            <Button Grid.Column="2"
+                                    Content="添加"
+                                    MinWidth="64"
+                                    Command="{Binding AddTodoCommand}" />
+                            <TextBox Grid.Row="2"
+                                     Grid.ColumnSpan="3"
+                                     Text="{Binding NewTodoContent, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinHeight="70"
+                                     VerticalScrollBarVisibility="Auto" />
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <TextBlock Grid.Row="2"
+                       Text="Ctrl + Alt + N 显示/隐藏"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0"
+                       FontSize="11"
+                       Foreground="{DynamicResource MutedTextBrush}" />
+        </Grid>
+    </Border>
+</Window>
