@@ -183,6 +183,57 @@ public sealed partial class MainViewModel : ObservableObject
         ScheduleSave();
     }
 
+    public void MoveTodo(TodoItem todo, int targetVisibleIndex)
+    {
+        if (!Todos.Contains(todo))
+        {
+            return;
+        }
+
+        var visibleTodos = VisibleTodos.Cast<TodoItem>()
+            .Where(visibleTodo => visibleTodo != todo)
+            .ToList();
+        if (visibleTodos.Count == 0)
+        {
+            return;
+        }
+
+        var oldIndex = Todos.IndexOf(todo);
+        if (oldIndex < 0)
+        {
+            return;
+        }
+
+        Todos.RemoveAt(oldIndex);
+
+        targetVisibleIndex = Math.Clamp(targetVisibleIndex, 0, visibleTodos.Count);
+        var insertIndex = Todos.Count;
+        if (targetVisibleIndex < visibleTodos.Count)
+        {
+            insertIndex = Math.Max(0, Todos.IndexOf(visibleTodos[targetVisibleIndex]));
+        }
+        else if (visibleTodos.Count > 0)
+        {
+            insertIndex = Math.Min(Todos.Count, Todos.IndexOf(visibleTodos[^1]) + 1);
+        }
+
+        Todos.Insert(insertIndex, todo);
+        for (var i = 0; i < Todos.Count; i++)
+        {
+            Todos[i].Order = i + 1;
+        }
+
+        _state.Todos = Todos.ToList();
+        RefreshViews();
+        ScheduleSave();
+    }
+
+    public int GetVisibleIndex(TodoItem todo)
+    {
+        var visibleTodos = VisibleTodos.Cast<TodoItem>().ToList();
+        return visibleTodos.IndexOf(todo);
+    }
+
     public Task SaveNowAsync()
     {
         _saveDelay?.Cancel();

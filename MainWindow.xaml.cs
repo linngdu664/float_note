@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FloatNote.Models;
 using FloatNote.Services;
 using FloatNote.ViewModels;
@@ -13,13 +14,19 @@ namespace FloatNote;
 public partial class MainWindow : Window
 {
     private const long ShortDoubleClickMilliseconds = 240;
+    private static readonly TimeSpan DragHoldDuration = TimeSpan.FromMilliseconds(360);
 
     private readonly MainViewModel _viewModel;
     private readonly Action _exitApplication;
     private HotkeyService? _hotkeyService;
+    private DispatcherTimer? _dragHoldTimer;
     private bool _allowClose;
     private Guid? _lastClickedTodoId;
     private long _lastTodoClickAt;
+    private TodoItem? _pendingDragTodo;
+    private TodoItem? _draggingTodo;
+    private System.Windows.Point _dragStartPoint;
+    private bool _isTodoDragActive;
 
     public MainWindow(MainViewModel viewModel, Action exitApplication)
     {
@@ -140,8 +147,14 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void TodoHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void TodoHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_isTodoDragActive)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (IsInteractiveSource(e.OriginalSource as DependencyObject))
         {
             return;
@@ -169,6 +182,129 @@ public partial class MainWindow : Window
 
             e.Handled = true;
         }
+    }
+
+    private void TodoCard_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (IsInteractiveSource(e.OriginalSource as DependencyObject)
+            || (sender as FrameworkElement)?.DataContext is not TodoItem todo)
+        {
+            return;
+        }
+
+        _pendingDragTodo = todo;
+        _dragStartPoint = e.GetPosition(TodoListBox);
+        _isTodoDragActive = false;
+
+        _dragHoldTimer?.Stop();
+        _dragHoldTimer = new DispatcherTimer
+        {
+            Interval = DragHoldDuration
+        };
+        _dragHoldTimer.Tick += (_, _) =>
+        {
+            _dragHoldTimer?.Stop();
+            _isTodoDragActive = true;
+        };
+        _dragHoldTimer.Start();
+    }
+
+    private void TodoCard_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_pendingDragTodo is null || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(TodoListBox);
+        var movedEnough = Math.Abs(current.X - _dragStartPoint.X) > SystemParameters.MinimumHorizontalDragDistance
+                          || Math.Abs(current.Y - _dragStartPoint.Y) > SystemParameters.MinimumVerticalDragDistance;
+
+        if (!_isTodoDragActive || !movedEnough)
+        {
+            return;
+        }
+
+        _dragHoldTimer?.Stop();
+        _draggingTodo = _pendingDragTodo;
+        DragDrop.DoDragDrop((DependencyObject)sender, _draggingTodo, System.Windows.DragDropEffects.Move);
+        ClearTodoDragState();
+        e.Handled = true;
+    }
+
+    private void TodoCard_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _dragHoldTimer?.Stop();
+        _pendingDragTodo = null;
+    }
+
+    private void TodoCard_DragEnter(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(typeof(TodoItem)) ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void TodoCard_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (!TryGetDraggedTodo(e, out var draggedTodo)
+            || (sender as FrameworkElement)?.DataContext is not TodoItem targetTodo)
+        {
+            return;
+        }
+
+        var targetIndex = _viewModel.GetVisibleIndex(targetTodo);
+        if (sender is FrameworkElement targetElement
+            && e.GetPosition(targetElement).Y > targetElement.ActualHeight / 2)
+        {
+            targetIndex++;
+        }
+
+        if (targetIndex >= 0)
+        {
+            _viewModel.MoveTodo(draggedTodo, targetIndex);
+        }
+
+        ClearTodoDragState();
+        e.Handled = true;
+    }
+
+    private void TodoListBox_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(typeof(TodoItem)) ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void TodoListBox_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (!TryGetDraggedTodo(e, out var draggedTodo))
+        {
+            return;
+        }
+
+        var targetIndex = _viewModel.VisibleTodos.Cast<object>().Count();
+        _viewModel.MoveTodo(draggedTodo, targetIndex);
+        ClearTodoDragState();
+        e.Handled = true;
+    }
+
+    private static bool TryGetDraggedTodo(System.Windows.DragEventArgs e, out TodoItem todo)
+    {
+        if (e.Data.GetData(typeof(TodoItem)) is TodoItem draggedTodo)
+        {
+            todo = draggedTodo;
+            return true;
+        }
+
+        todo = null!;
+        return false;
+    }
+
+    private void ClearTodoDragState()
+    {
+        _dragHoldTimer?.Stop();
+        _pendingDragTodo = null;
+        _draggingTodo = null;
+        _isTodoDragActive = false;
     }
 
     private static bool IsInteractiveSource(DependencyObject? source)
