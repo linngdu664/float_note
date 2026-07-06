@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using FloatNote.Models;
 using FloatNote.Services;
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
     private TodoItem? _draggingTodo;
     private System.Windows.Point _dragStartPoint;
     private bool _isTodoDragActive;
+    private bool _isHidingAnimated;
 
     public MainWindow(MainViewModel viewModel, Action exitApplication)
     {
@@ -48,12 +50,61 @@ public partial class MainWindow : Window
 
     public void ShowAt(double left, double top)
     {
-        Show();
+        ShowAnimated();
         WindowState = WindowState.Normal;
         var area = SystemParameters.WorkArea;
         Left = Math.Clamp(left, area.Left, area.Right - ActualWidth);
         Top = Math.Clamp(top, area.Top, area.Bottom - ActualHeight);
         Activate();
+    }
+
+    public void ShowAnimated()
+    {
+        _isHidingAnimated = false;
+        BeginAnimation(OpacityProperty, null);
+        MainChromeTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+
+        if (!IsVisible)
+        {
+            Opacity = 0;
+            MainChromeTranslate.Y = -10;
+            Show();
+        }
+
+        WindowState = WindowState.Normal;
+        Activate();
+        AnimateIn();
+    }
+
+    public void HideAnimated()
+    {
+        if (!IsVisible || _isHidingAnimated)
+        {
+            return;
+        }
+
+        _isHidingAnimated = true;
+        var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(120))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+        };
+        var slide = new DoubleAnimation(8, TimeSpan.FromMilliseconds(140))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+
+        fade.Completed += (_, _) =>
+        {
+            Hide();
+            BeginAnimation(OpacityProperty, null);
+            MainChromeTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            Opacity = 1;
+            MainChromeTranslate.Y = 0;
+            _isHidingAnimated = false;
+        };
+
+        BeginAnimation(OpacityProperty, fade);
+        MainChromeTranslate.BeginAnimation(TranslateTransform.YProperty, slide);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -80,7 +131,7 @@ public partial class MainWindow : Window
         if (!_allowClose)
         {
             e.Cancel = true;
-            Hide();
+            HideAnimated();
             return;
         }
 
@@ -93,17 +144,21 @@ public partial class MainWindow : Window
         base.OnClosed(e);
     }
 
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        AnimateIn();
+    }
+
     private void ToggleVisibility()
     {
         if (IsVisible)
         {
-            Hide();
+            HideAnimated();
             return;
         }
 
-        Show();
-        WindowState = WindowState.Normal;
-        Activate();
+        ShowAnimated();
     }
 
     private void SaveWindowBounds()
@@ -128,12 +183,27 @@ public partial class MainWindow : Window
 
     private void HideButton_Click(object sender, RoutedEventArgs e)
     {
-        Hide();
+        HideAnimated();
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         _exitApplication();
+    }
+
+    private void AnimateIn()
+    {
+        var fade = new DoubleAnimation(1, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+        var slide = new DoubleAnimation(0, TimeSpan.FromMilliseconds(180))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        BeginAnimation(OpacityProperty, fade);
+        MainChromeTranslate.BeginAnimation(TranslateTransform.YProperty, slide);
     }
 
     private void NewTodoTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)

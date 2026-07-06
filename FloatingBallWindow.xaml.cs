@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using FloatNote.ViewModels;
 
 namespace FloatNote;
@@ -61,11 +62,13 @@ public partial class FloatingBallWindow : Window
 
     private void Shell_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        ClearWindowShapeAnimations();
         _dragMouseStart = GetMouseScreenPoint(e);
         _dragWindowLeft = Left;
         _dragWindowTop = Top;
         _isDragging = true;
         _movedDuringDrag = false;
+        AnimateShell(0.96, 0.18);
         Shell.CaptureMouse();
     }
 
@@ -101,18 +104,20 @@ public partial class FloatingBallWindow : Window
 
         if (_movedDuringDrag)
         {
-            SnapToEdgeIfNeeded();
-            _viewModel.UpdateFloatingBallPosition(Left, Top);
+            var snappedPosition = SnapToEdgeIfNeeded();
+            _viewModel.UpdateFloatingBallPosition(snappedPosition.X, snappedPosition.Y);
             return;
         }
 
+        AnimateShell(1, 0.24);
         _toggleMainWindow();
         BringAboveMainWindow();
     }
 
     private void Shell_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        _previewWindow.Hide();
+        _previewWindow.HideAnimated();
+        AnimateShell(1, 0.24);
 
         var menu = new System.Windows.Controls.ContextMenu();
         var exitItem = new System.Windows.Controls.MenuItem
@@ -128,6 +133,8 @@ public partial class FloatingBallWindow : Window
 
     private void Shell_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
+        AnimateShell(1.04, 0.34);
+
         var previewLeft = Left + Width + 8;
         if (previewLeft + _previewWindow.Width > SystemParameters.WorkArea.Right)
         {
@@ -144,10 +151,12 @@ public partial class FloatingBallWindow : Window
             return;
         }
 
+        AnimateShell(1, 0.24);
+
         await Task.Delay(160);
         if (!IsMouseOver && !_previewWindow.IsMouseOver)
         {
-            _previewWindow.Hide();
+            _previewWindow.HideAnimated();
         }
     }
 
@@ -160,23 +169,40 @@ public partial class FloatingBallWindow : Window
             : source.CompositionTarget.TransformFromDevice.Transform(physicalPoint);
     }
 
-    private void SnapToEdgeIfNeeded()
+    private System.Windows.Point SnapToEdgeIfNeeded()
     {
         var area = GetCurrentWorkArea();
         var shouldDockLeft = Left <= area.Left + EdgeThreshold;
         var shouldDockRight = Left + Width >= area.Right - EdgeThreshold;
+        var targetLeft = Left;
+        var targetTop = Top;
+        var targetWidth = BallSize;
+        var targetHeight = BallSize;
+        CornerRadius targetCornerRadius;
 
         if (shouldDockLeft)
         {
-            Left = area.Left;
+            targetLeft = area.Left;
+            targetWidth = EdgeWidth;
+            targetHeight = EdgeHeight;
+            targetCornerRadius = new CornerRadius(0, 12, 12, 0);
         }
         else if (shouldDockRight)
         {
-            Left = area.Right - EdgeWidth;
+            targetLeft = area.Right - EdgeWidth;
+            targetWidth = EdgeWidth;
+            targetHeight = EdgeHeight;
+            targetCornerRadius = new CornerRadius(12, 0, 0, 12);
+        }
+        else
+        {
+            targetCornerRadius = new CornerRadius(BallSize / 2);
         }
 
-        Top = Math.Clamp(Top, area.Top, area.Bottom - (shouldDockLeft || shouldDockRight ? EdgeHeight : BallSize));
-        ApplyEdgeShape();
+        targetTop = Math.Clamp(targetTop, area.Top, area.Bottom - targetHeight);
+        AnimateWindowShape(targetLeft, targetTop, targetWidth, targetHeight, targetCornerRadius);
+        AnimateShell(1, 0.24);
+        return new System.Windows.Point(targetLeft, targetTop);
     }
 
     private void ApplyEdgeShape()
@@ -208,6 +234,71 @@ public partial class FloatingBallWindow : Window
         Shell.Width = BallSize;
         Shell.Height = BallSize;
         Shell.CornerRadius = new CornerRadius(BallSize / 2);
+    }
+
+    private void AnimateWindowShape(
+        double targetLeft,
+        double targetTop,
+        double targetWidth,
+        double targetHeight,
+        CornerRadius targetCornerRadius)
+    {
+        var startLeft = Left;
+        var startTop = Top;
+        var startWidth = Width;
+        var startHeight = Height;
+        var startShellWidth = Shell.Width;
+        var startShellHeight = Shell.Height;
+
+        Left = targetLeft;
+        Top = targetTop;
+        Width = targetWidth;
+        Height = targetHeight;
+        Shell.Width = targetWidth;
+        Shell.Height = targetHeight;
+        Shell.CornerRadius = targetCornerRadius;
+
+        BeginAnimation(LeftProperty, CreateSnapAnimation(startLeft, targetLeft));
+        BeginAnimation(TopProperty, CreateSnapAnimation(startTop, targetTop));
+        BeginAnimation(WidthProperty, CreateSnapAnimation(startWidth, targetWidth));
+        BeginAnimation(HeightProperty, CreateSnapAnimation(startHeight, targetHeight));
+        Shell.BeginAnimation(WidthProperty, CreateSnapAnimation(startShellWidth, targetWidth));
+        Shell.BeginAnimation(HeightProperty, CreateSnapAnimation(startShellHeight, targetHeight));
+    }
+
+    private void ClearWindowShapeAnimations()
+    {
+        BeginAnimation(LeftProperty, null);
+        BeginAnimation(TopProperty, null);
+        BeginAnimation(WidthProperty, null);
+        BeginAnimation(HeightProperty, null);
+        Shell.BeginAnimation(WidthProperty, null);
+        Shell.BeginAnimation(HeightProperty, null);
+    }
+
+    private void AnimateShell(double scale, double shadowOpacity)
+    {
+        var scaleAnimation = new DoubleAnimation(scale, TimeSpan.FromMilliseconds(120))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        var shadowAnimation = new DoubleAnimation(shadowOpacity, TimeSpan.FromMilliseconds(140))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        ShellScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimation);
+        ShellScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimation.Clone());
+        ShellShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, shadowAnimation);
+    }
+
+    private static DoubleAnimation CreateSnapAnimation(double from, double to)
+    {
+        return new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(190))
+        {
+            FillBehavior = FillBehavior.Stop,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
     }
 
     private Rect GetCurrentWorkArea()

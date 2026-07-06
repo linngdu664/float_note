@@ -6,3 +6,5 @@
 /.vs
 /AGENTS.md
 .idea
+/bin/
+/obj/

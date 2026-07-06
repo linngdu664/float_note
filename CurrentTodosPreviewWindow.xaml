@@ -15,9 +15,20 @@
     <Border Background="{DynamicResource PanelBackgroundBrush}"
             BorderBrush="{DynamicResource BorderBrush}"
             BorderThickness="1"
+            CornerRadius="10"
             Padding="10"
+            RenderTransformOrigin="0.5,0"
             MouseLeftButtonDown="Preview_MouseLeftButtonDown"
             MouseLeave="Preview_MouseLeave">
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="PreviewTranslate" />
+        </Border.RenderTransform>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="18"
+                              ShadowDepth="4"
+                              Opacity="0.18"
+                              Color="#FF000000" />
+        </Border.Effect>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -37,7 +48,13 @@
                      ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Margin="0,0,0,8">
+                        <Border Margin="0,0,0,8"
+                                Padding="8"
+                                CornerRadius="7"
+                                Background="{DynamicResource InputBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1">
+                            <StackPanel>
                             <TextBlock Text="{Binding Title}"
                                        TextWrapping="Wrap"
                                        FontWeight="SemiBold"
@@ -46,7 +63,8 @@
                                        TextWrapping="Wrap"
                                        FontSize="12"
                                        Foreground="{DynamicResource MutedTextBrush}" />
-                        </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

@@ -14,9 +14,15 @@
         ShowInTaskbar="False"
         Topmost="True"
         Background="{DynamicResource WindowBackgroundBrush}">
-    <Border BorderBrush="{DynamicResource BorderBrush}"
+    <Border x:Name="MainChrome"
+            BorderBrush="{DynamicResource BorderBrush}"
             BorderThickness="1"
-            Background="{DynamicResource WindowBackgroundBrush}">
+            CornerRadius="10"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            RenderTransformOrigin="0.5,0">
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="MainChromeTranslate" />
+        </Border.RenderTransform>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="42" />
@@ -83,7 +89,7 @@
                               Height="6"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Center"
-                              Background="{DynamicResource BorderBrush}"
+                              Background="{DynamicResource AccentSoftBrush}"
                               ResizeBehavior="PreviousAndNext"
                               ResizeDirection="Rows"
                               ShowsPreview="True" />
@@ -134,23 +140,50 @@
                                     <Border x:Name="TodoCard"
                                             Margin="0,0,0,8"
                                             Padding="0"
-                                            Background="{DynamicResource InputBackgroundBrush}"
-                                            BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="1"
+                                            CornerRadius="8"
                                             PreviewMouseLeftButtonDown="TodoCard_PreviewMouseLeftButtonDown"
                                             PreviewMouseLeftButtonUp="TodoCard_PreviewMouseLeftButtonUp"
                                             MouseMove="TodoCard_MouseMove"
                                             DragEnter="TodoCard_DragEnter"
                                             Drop="TodoCard_Drop"
                                             AllowDrop="True">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                                                <Setter Property="BorderThickness" Value="1" />
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect BlurRadius="10"
+                                                                          ShadowDepth="2"
+                                                                          Opacity="0.08"
+                                                                          Color="#FF000000" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                        <Setter Property="Effect">
+                                                            <Setter.Value>
+                                                                <DropShadowEffect BlurRadius="14"
+                                                                                  ShadowDepth="3"
+                                                                                  Opacity="0.14"
+                                                                                  Color="#FF000000" />
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="4" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
 
-                                            <Border x:Name="CurrentBar"
-                                                    Background="Transparent" />
+                                                    <Border x:Name="CurrentBar"
+                                                            CornerRadius="8,0,0,8"
+                                                            Background="Transparent" />
 
                                             <Grid Grid.Column="1" Margin="9">
                                                 <Grid.RowDefinitions>
@@ -211,8 +244,29 @@
                                                 </Grid>
 
                                                 <Grid Grid.Row="1"
-                                                      Margin="24,10,0,0"
-                                                      Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                      Margin="24,10,0,0">
+                                                    <Grid.Style>
+                                                        <Style TargetType="Grid">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Setter Property="Opacity" Value="0" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Setter Property="Opacity" Value="1" />
+                                                                    <DataTrigger.EnterActions>
+                                                                        <BeginStoryboard>
+                                                                            <Storyboard>
+                                                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                                                 From="0"
+                                                                                                 To="1"
+                                                                                                 Duration="0:0:0.14" />
+                                                                            </Storyboard>
+                                                                        </BeginStoryboard>
+                                                                    </DataTrigger.EnterActions>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Grid.Style>
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto" />
                                                         <RowDefinition Height="6" />

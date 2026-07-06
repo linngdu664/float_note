@@ -37,10 +37,10 @@ public partial class App : System.Windows.Application
         _mainWindow.PreviewMouseUp += (_, _) => BringFloatingBallAboveMainWindow();
         _trayService = new TrayService(
             showWindow: ShowMainWindow,
-            hideWindow: () => _mainWindow?.Hide(),
+            hideWindow: () => _mainWindow?.HideAnimated(),
             exitApplication: ShutdownApplication);
 
-        _mainWindow.Show();
+        _mainWindow.ShowAnimated();
         _floatingBallWindow.Show();
     }
 
@@ -99,9 +99,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _mainWindow.Show();
-        _mainWindow.WindowState = WindowState.Normal;
-        _mainWindow.Activate();
+        _mainWindow.ShowAnimated();
         BringFloatingBallAboveMainWindow();
     }
 
@@ -114,7 +112,7 @@ public partial class App : System.Windows.Application
 
         if (_mainWindow.IsVisible)
         {
-            _mainWindow.Hide();
+            _mainWindow.HideAnimated();
             BringFloatingBallAboveMainWindow();
             return;
         }

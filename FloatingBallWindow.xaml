@@ -11,18 +11,47 @@
         Topmost="True"
         AllowsTransparency="True"
         Background="Transparent">
-    <Border x:Name="Shell"
-            Width="54"
-            Height="54"
-            CornerRadius="27"
-            Background="{DynamicResource AccentBrush}"
-            BorderBrush="{DynamicResource BorderBrush}"
-            BorderThickness="1"
-            MouseLeftButtonDown="Shell_MouseLeftButtonDown"
-            MouseMove="Shell_MouseMove"
-            MouseLeftButtonUp="Shell_MouseLeftButtonUp"
-            MouseEnter="Shell_MouseEnter"
-            MouseLeave="Shell_MouseLeave"
-            MouseRightButtonUp="Shell_MouseRightButtonUp">
-    </Border>
+    <Grid x:Name="Root">
+        <Border x:Name="Shell"
+                Width="54"
+                Height="54"
+                CornerRadius="27"
+                Background="{DynamicResource AccentBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                RenderTransformOrigin="0.5,0.5"
+                MouseLeftButtonDown="Shell_MouseLeftButtonDown"
+                MouseMove="Shell_MouseMove"
+                MouseLeftButtonUp="Shell_MouseLeftButtonUp"
+                MouseEnter="Shell_MouseEnter"
+                MouseLeave="Shell_MouseLeave"
+                MouseRightButtonUp="Shell_MouseRightButtonUp">
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="ShellScale" ScaleX="1" ScaleY="1" />
+            </Border.RenderTransform>
+            <Border.Effect>
+                <DropShadowEffect x:Name="ShellShadow"
+                                  BlurRadius="16"
+                                  ShadowDepth="3"
+                                  Opacity="0.24"
+                                  Color="#FF000000" />
+            </Border.Effect>
+            <Grid ClipToBounds="True">
+                <Ellipse Width="22"
+                         Height="22"
+                         HorizontalAlignment="Left"
+                         VerticalAlignment="Top"
+                         Margin="8,7,0,0"
+                         Fill="#38FFFFFF"
+                         IsHitTestVisible="False" />
+                <Ellipse Width="46"
+                         Height="46"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Stroke="#28FFFFFF"
+                         StrokeThickness="1.5"
+                         IsHitTestVisible="False" />
+            </Grid>
+        </Border>
+    </Grid>
 </Window>
