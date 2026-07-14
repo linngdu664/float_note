@@ -47,6 +47,12 @@
                                Foreground="{DynamicResource TextBrush}" />
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="{Binding NoteToggleButtonText}"
+                                MinWidth="74"
+                                MinHeight="26"
+                                Padding="8,0"
+                                Margin="0,0,6,0"
+                                Command="{Binding ToggleNoteCollapsedCommand}" />
                         <Button Content="{Binding ThemeButtonText}"
                                 MinWidth="54"
                                 MinHeight="26"
@@ -72,21 +78,40 @@
 
             <Grid Grid.Row="1" Margin="12">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1*" />
-                    <RowDefinition Height="8" />
+                    <RowDefinition x:Name="NoteRow" Height="1*" MinHeight="140" />
+                    <RowDefinition x:Name="NoteSplitterRow" Height="8" />
                     <RowDefinition Height="1.65*" />
                 </Grid.RowDefinitions>
 
-                <TextBox Grid.Row="0"
-                         Text="{Binding NoteText, UpdateSourceTrigger=PropertyChanged}"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Auto"
-                         FontSize="14"
-                         MinHeight="140"
-                         SpellCheck.IsEnabled="True" />
+                <Grid x:Name="NoteHost" Grid.Row="0">
+                    <TextBox Text="{Binding NoteText, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             FontSize="14"
+                             Padding="8,8,8,42"
+                             SpellCheck.IsEnabled="True" />
 
-                <GridSplitter Grid.Row="1"
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Margin="0,0,10,10">
+                        <Button Content="反转义"
+                                MinHeight="26"
+                                Padding="8,0"
+                                Margin="0,0,6,0"
+                                ToolTip="字符串反转义：把 \n、\t 等文本转换为真实换行和制表符"
+                                Command="{Binding UnescapeNoteTextCommand}" />
+                        <Button Content="JSON"
+                                MinHeight="26"
+                                Padding="8,0"
+                                ToolTip="JSON 格式化：解析后添加换行和缩进"
+                                Command="{Binding FormatNoteJsonCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <GridSplitter x:Name="NoteSplitter"
+                              Grid.Row="1"
                               Height="6"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Center"
@@ -223,17 +248,16 @@
                                                         </TextBlock.Style>
                                                     </TextBlock>
 
-                                                    <Border Grid.Column="2"
+                                                    <Button x:Name="CurrentButton"
+                                                            Grid.Column="2"
+                                                            Content="当前"
                                                             Margin="8,0,0,0"
-                                                            Padding="6,2"
-                                                            Background="{DynamicResource AccentSoftBrush}"
-                                                            BorderBrush="{DynamicResource AccentBrush}"
-                                                            BorderThickness="1"
-                                                            Visibility="{Binding IsCurrent, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                        <TextBlock Text="当前"
-                                                                   FontSize="11"
-                                                                   Foreground="{DynamicResource AccentBrush}" />
-                                                    </Border>
+                                                            MinHeight="24"
+                                                            Padding="8,0"
+                                                            FontSize="11"
+                                                            ToolTip="标记或取消当前待办"
+                                                            Command="{Binding DataContext.ToggleCurrentTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}" />
 
                                                     <Button Grid.Column="3"
                                                             Content="删除"
@@ -303,6 +327,9 @@
                                         <DataTrigger Binding="{Binding IsCurrent}" Value="True">
                                             <Setter TargetName="CurrentBar" Property="Background" Value="{DynamicResource AccentBrush}" />
                                             <Setter TargetName="TodoCard" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                            <Setter TargetName="CurrentButton" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                                            <Setter TargetName="CurrentButton" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                            <Setter TargetName="CurrentButton" Property="Foreground" Value="{DynamicResource AccentBrush}" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>

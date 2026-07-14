@@ -14,7 +14,6 @@ namespace FloatNote;
 
 public partial class MainWindow : Window
 {
-    private const long ShortDoubleClickMilliseconds = 240;
     private static readonly TimeSpan DragHoldDuration = TimeSpan.FromMilliseconds(360);
 
     private readonly MainViewModel _viewModel;
@@ -22,11 +21,10 @@ public partial class MainWindow : Window
     private HotkeyService? _hotkeyService;
     private DispatcherTimer? _dragHoldTimer;
     private bool _allowClose;
-    private Guid? _lastClickedTodoId;
-    private long _lastTodoClickAt;
     private TodoItem? _pendingDragTodo;
     private TodoItem? _draggingTodo;
     private System.Windows.Point _dragStartPoint;
+    private GridLength _expandedNoteRowHeight = new(1, GridUnitType.Star);
     private bool _isTodoDragActive;
     private bool _isHidingAnimated;
 
@@ -41,6 +39,9 @@ public partial class MainWindow : Window
         Top = viewModel.Window.Top;
         Width = Math.Max(viewModel.Window.Width, 520);
         Height = Math.Max(viewModel.Window.Height, 760);
+
+        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        ApplyNoteCollapsedState();
     }
 
     public void AllowClose()
@@ -140,6 +141,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         _hotkeyService?.Dispose();
         base.OnClosed(e);
     }
@@ -206,6 +208,40 @@ public partial class MainWindow : Window
         MainChromeTranslate.BeginAnimation(TranslateTransform.YProperty, slide);
     }
 
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.IsNoteCollapsed))
+        {
+            ApplyNoteCollapsedState();
+        }
+    }
+
+    private void ApplyNoteCollapsedState()
+    {
+        if (_viewModel.IsNoteCollapsed)
+        {
+            if (NoteRow.Height.Value > 0)
+            {
+                _expandedNoteRowHeight = NoteRow.Height;
+            }
+
+            NoteHost.Visibility = Visibility.Collapsed;
+            NoteSplitter.Visibility = Visibility.Collapsed;
+            NoteRow.MinHeight = 0;
+            NoteRow.Height = new GridLength(0);
+            NoteSplitterRow.Height = new GridLength(0);
+            return;
+        }
+
+        NoteHost.Visibility = Visibility.Visible;
+        NoteSplitter.Visibility = Visibility.Visible;
+        NoteRow.MinHeight = 140;
+        NoteRow.Height = _expandedNoteRowHeight.Value > 0
+            ? _expandedNoteRowHeight
+            : new GridLength(1, GridUnitType.Star);
+        NoteSplitterRow.Height = new GridLength(8);
+    }
+
     private void NewTodoTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key != Key.Enter)
@@ -232,24 +268,7 @@ public partial class MainWindow : Window
 
         if ((sender as FrameworkElement)?.DataContext is TodoItem todo)
         {
-            var now = Environment.TickCount64;
-            var isShortDoubleClick = _lastClickedTodoId == todo.Id
-                                     && now - _lastTodoClickAt <= ShortDoubleClickMilliseconds;
-
-            _lastClickedTodoId = todo.Id;
-            _lastTodoClickAt = now;
-
-            if (isShortDoubleClick)
-            {
-                _viewModel.ToggleCurrentTodoCommand.Execute(todo);
-                _lastClickedTodoId = null;
-                _lastTodoClickAt = 0;
-            }
-            else
-            {
-                _viewModel.ToggleTodoExpandedCommand.Execute(todo);
-            }
-
+            _viewModel.ToggleTodoExpandedCommand.Execute(todo);
             e.Handled = true;
         }
     }

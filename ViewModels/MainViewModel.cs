@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,6 +14,12 @@ namespace FloatNote.ViewModels;
 
 public sealed partial class MainViewModel : ObservableObject
 {
+    private static readonly JsonSerializerOptions PrettyJsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     private readonly AppState _state;
     private readonly AppStorage _storage;
     private CancellationTokenSource? _saveDelay;
@@ -30,6 +39,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDarkTheme;
 
+    [ObservableProperty]
+    private bool _isNoteCollapsed;
+
     public MainViewModel(AppState state, AppStorage storage)
     {
         _state = state;
@@ -37,6 +49,7 @@ public sealed partial class MainViewModel : ObservableObject
         _noteText = state.NoteText;
         _showCompletedTodos = state.ShowCompletedTodos;
         _isDarkTheme = state.IsDarkTheme;
+        _isNoteCollapsed = state.IsNoteCollapsed;
 
         NormalizeTodos(state.Todos);
         Todos = new ObservableCollection<TodoItem>(state.Todos.OrderBy(todo => todo.Order));
@@ -66,6 +79,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public string ThemeButtonText => IsDarkTheme ? "浅色" : "深色";
 
+    public string NoteToggleButtonText => IsNoteCollapsed ? "展开便签" : "折叠便签";
+
     partial void OnNoteTextChanged(string value)
     {
         _state.NoteText = value;
@@ -87,10 +102,52 @@ public sealed partial class MainViewModel : ObservableObject
         ScheduleSave();
     }
 
+    partial void OnIsNoteCollapsedChanged(bool value)
+    {
+        _state.IsNoteCollapsed = value;
+        OnPropertyChanged(nameof(NoteToggleButtonText));
+        ScheduleSave();
+    }
+
     [RelayCommand]
     private void ToggleTheme()
     {
         IsDarkTheme = !IsDarkTheme;
+    }
+
+    [RelayCommand]
+    private void ToggleNoteCollapsed()
+    {
+        IsNoteCollapsed = !IsNoteCollapsed;
+    }
+
+    [RelayCommand]
+    private void UnescapeNoteText()
+    {
+        if (string.IsNullOrEmpty(NoteText))
+        {
+            return;
+        }
+
+        NoteText = UnescapeString(NoteText);
+    }
+
+    [RelayCommand]
+    private void FormatNoteJson()
+    {
+        if (string.IsNullOrWhiteSpace(NoteText))
+        {
+            return;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(NoteText);
+            NoteText = JsonSerializer.Serialize(document.RootElement, PrettyJsonOptions);
+        }
+        catch (JsonException)
+        {
+        }
     }
 
     [RelayCommand]
@@ -292,5 +349,112 @@ public sealed partial class MainViewModel : ObservableObject
                 todo.Title = todo.Text;
             }
         }
+    }
+
+    private static string UnescapeString(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (character != '\\' || i == value.Length - 1)
+            {
+                builder.Append(character);
+                continue;
+            }
+
+            var escaped = value[++i];
+            switch (escaped)
+            {
+                case 'n':
+                    builder.Append('\n');
+                    break;
+                case 'r':
+                    builder.Append('\r');
+                    break;
+                case 't':
+                    builder.Append('\t');
+                    break;
+                case 'b':
+                    builder.Append('\b');
+                    break;
+                case 'f':
+                    builder.Append('\f');
+                    break;
+                case '\\':
+                    builder.Append('\\');
+                    break;
+                case '"':
+                    builder.Append('"');
+                    break;
+                case '/':
+                    builder.Append('/');
+                    break;
+                case 'u':
+                    if (TryReadUnicodeEscape(value, i + 1, out var unicodeCharacter))
+                    {
+                        builder.Append(unicodeCharacter);
+                        i += 4;
+                    }
+                    else
+                    {
+                        builder.Append('\\');
+                        builder.Append(escaped);
+                    }
+
+                    break;
+                default:
+                    builder.Append('\\');
+                    builder.Append(escaped);
+                    break;
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool TryReadUnicodeEscape(string value, int startIndex, out char character)
+    {
+        character = '\0';
+        if (startIndex + 4 > value.Length)
+        {
+            return false;
+        }
+
+        var codePoint = 0;
+        for (var i = startIndex; i < startIndex + 4; i++)
+        {
+            var digit = HexValue(value[i]);
+            if (digit < 0)
+            {
+                return false;
+            }
+
+            codePoint = (codePoint << 4) + digit;
+        }
+
+        character = (char)codePoint;
+        return true;
+    }
+
+    private static int HexValue(char character)
+    {
+        if (character is >= '0' and <= '9')
+        {
+            return character - '0';
+        }
+
+        if (character is >= 'a' and <= 'f')
+        {
+            return character - 'a' + 10;
+        }
+
+        if (character is >= 'A' and <= 'F')
+        {
+            return character - 'A' + 10;
+        }
+
+        return -1;
     }
 }
