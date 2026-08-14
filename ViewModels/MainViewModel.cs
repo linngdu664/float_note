@@ -42,6 +42,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isNoteCollapsed;
 
+    [ObservableProperty]
+    private bool _isTodoCollapsed;
+
     public MainViewModel(AppState state, AppStorage storage)
     {
         _state = state;
@@ -50,6 +53,8 @@ public sealed partial class MainViewModel : ObservableObject
         _showCompletedTodos = state.ShowCompletedTodos;
         _isDarkTheme = state.IsDarkTheme;
         _isNoteCollapsed = state.IsNoteCollapsed;
+        _isTodoCollapsed = state.IsTodoCollapsed && !state.IsNoteCollapsed;
+        _state.IsTodoCollapsed = _isTodoCollapsed;
 
         NormalizeTodos(state.Todos);
         Todos = new ObservableCollection<TodoItem>(state.Todos.OrderBy(todo => todo.Order));
@@ -77,9 +82,11 @@ public sealed partial class MainViewModel : ObservableObject
 
     public FloatingBallSnapshot FloatingBall => _state.FloatingBall;
 
-    public string ThemeButtonText => IsDarkTheme ? "浅色" : "深色";
+    public string ThemeButtonIcon => IsDarkTheme ? "☀" : "☾";
 
     public string NoteToggleButtonText => IsNoteCollapsed ? "展开便签" : "折叠便签";
+
+    public string TodoToggleButtonText => IsTodoCollapsed ? "展开待办" : "折叠待办";
 
     partial void OnNoteTextChanged(string value)
     {
@@ -98,7 +105,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _state.IsDarkTheme = value;
         ThemeService.Apply(value);
-        OnPropertyChanged(nameof(ThemeButtonText));
+        OnPropertyChanged(nameof(ThemeButtonIcon));
         ScheduleSave();
     }
 
@@ -106,6 +113,13 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _state.IsNoteCollapsed = value;
         OnPropertyChanged(nameof(NoteToggleButtonText));
+        ScheduleSave();
+    }
+
+    partial void OnIsTodoCollapsedChanged(bool value)
+    {
+        _state.IsTodoCollapsed = value;
+        OnPropertyChanged(nameof(TodoToggleButtonText));
         ScheduleSave();
     }
 
@@ -118,7 +132,23 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleNoteCollapsed()
     {
+        if (!IsNoteCollapsed && IsTodoCollapsed)
+        {
+            IsTodoCollapsed = false;
+        }
+
         IsNoteCollapsed = !IsNoteCollapsed;
+    }
+
+    [RelayCommand]
+    private void ToggleTodoCollapsed()
+    {
+        if (!IsTodoCollapsed && IsNoteCollapsed)
+        {
+            IsNoteCollapsed = false;
+        }
+
+        IsTodoCollapsed = !IsTodoCollapsed;
     }
 
     [RelayCommand]
@@ -311,7 +341,16 @@ public sealed partial class MainViewModel : ObservableObject
     private void OnTodoPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         _state.Todos = Todos.ToList();
-        RefreshViews();
+
+        if (e.PropertyName == nameof(TodoItem.IsCompleted))
+        {
+            VisibleTodos.Refresh();
+        }
+        else if (e.PropertyName == nameof(TodoItem.IsCurrent))
+        {
+            CurrentTodos.Refresh();
+        }
+
         ScheduleSave();
     }
 

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,24 +16,26 @@ namespace FloatNote;
 public partial class MainWindow : Window
 {
     private static readonly TimeSpan DragHoldDuration = TimeSpan.FromMilliseconds(360);
+    private const int WmGetMinMaxInfo = 0x0024;
+    private const uint MonitorDefaultToNearest = 0x00000002;
 
     private readonly MainViewModel _viewModel;
-    private readonly Action _exitApplication;
     private HotkeyService? _hotkeyService;
+    private HwndSource? _windowSource;
     private DispatcherTimer? _dragHoldTimer;
     private bool _allowClose;
     private TodoItem? _pendingDragTodo;
     private TodoItem? _draggingTodo;
     private System.Windows.Point _dragStartPoint;
     private GridLength _expandedNoteRowHeight = new(1, GridUnitType.Star);
+    private GridLength _expandedTodoRowHeight = new(1.65, GridUnitType.Star);
     private bool _isTodoDragActive;
     private bool _isHidingAnimated;
 
-    public MainWindow(MainViewModel viewModel, Action exitApplication)
+    public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
-        _exitApplication = exitApplication;
         DataContext = viewModel;
 
         Left = viewModel.Window.Left;
@@ -41,7 +44,7 @@ public partial class MainWindow : Window
         Height = Math.Max(viewModel.Window.Height, 760);
 
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-        ApplyNoteCollapsedState();
+        ApplyPaneCollapsedState();
     }
 
     public void AllowClose()
@@ -72,7 +75,6 @@ public partial class MainWindow : Window
             Show();
         }
 
-        WindowState = WindowState.Normal;
         Activate();
         AnimateIn();
     }
@@ -112,6 +114,8 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         var handle = new WindowInteropHelper(this).Handle;
+        _windowSource = HwndSource.FromHwnd(handle);
+        _windowSource?.AddHook(WindowMessageHook);
         _hotkeyService = new HotkeyService(handle, ToggleVisibility);
     }
 
@@ -125,6 +129,22 @@ public partial class MainWindow : Window
     {
         base.OnRenderSizeChanged(sizeInfo);
         SaveWindowBounds();
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+
+        if (MaximizeButton is null || MainChrome is null)
+        {
+            return;
+        }
+
+        var isMaximized = WindowState == WindowState.Maximized;
+        MaximizeButton.Content = isMaximized ? "❐" : "□";
+        MaximizeButton.ToolTip = isMaximized ? "还原窗口" : "最大化窗口";
+        MainChrome.CornerRadius = isMaximized ? new CornerRadius(0) : new CornerRadius(10);
+        MainChrome.BorderThickness = isMaximized ? new Thickness(0) : new Thickness(1);
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -143,6 +163,7 @@ public partial class MainWindow : Window
     {
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         _hotkeyService?.Dispose();
+        _windowSource?.RemoveHook(WindowMessageHook);
         base.OnClosed(e);
     }
 
@@ -177,20 +198,74 @@ public partial class MainWindow : Window
     {
         if (e.ClickCount == 2)
         {
+            ToggleMaximizeRestore();
+            return;
+        }
+
+        if (WindowState == WindowState.Maximized)
+        {
             return;
         }
 
         DragMove();
     }
 
-    private void HideButton_Click(object sender, RoutedEventArgs e)
+    private void ToggleMaximizeButton_Click(object sender, RoutedEventArgs e)
     {
-        HideAnimated();
+        ToggleMaximizeRestore();
+    }
+
+    private void ToggleMaximizeRestore()
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    private IntPtr WindowMessageHook(
+        IntPtr hwnd,
+        int message,
+        IntPtr wParam,
+        IntPtr lParam,
+        ref bool handled)
+    {
+        if (message == WmGetMinMaxInfo)
+        {
+            ApplyCurrentMonitorWorkArea(hwnd, lParam);
+            handled = true;
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static void ApplyCurrentMonitorWorkArea(IntPtr windowHandle, IntPtr minMaxInfoPointer)
+    {
+        var monitorHandle = MonitorFromWindow(windowHandle, MonitorDefaultToNearest);
+        if (monitorHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var monitorInfo = new MonitorInfo
+        {
+            Size = (uint)Marshal.SizeOf<MonitorInfo>()
+        };
+        if (!GetMonitorInfo(monitorHandle, ref monitorInfo))
+        {
+            return;
+        }
+
+        var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(minMaxInfoPointer);
+        minMaxInfo.MaxPosition.X = Math.Abs(monitorInfo.WorkArea.Left - monitorInfo.MonitorArea.Left);
+        minMaxInfo.MaxPosition.Y = Math.Abs(monitorInfo.WorkArea.Top - monitorInfo.MonitorArea.Top);
+        minMaxInfo.MaxSize.X = Math.Abs(monitorInfo.WorkArea.Right - monitorInfo.WorkArea.Left);
+        minMaxInfo.MaxSize.Y = Math.Abs(monitorInfo.WorkArea.Bottom - monitorInfo.WorkArea.Top);
+        Marshal.StructureToPtr(minMaxInfo, minMaxInfoPointer, false);
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        _exitApplication();
+        HideAnimated();
     }
 
     private void AnimateIn()
@@ -210,13 +285,14 @@ public partial class MainWindow : Window
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainViewModel.IsNoteCollapsed))
+        if (e.PropertyName is nameof(MainViewModel.IsNoteCollapsed)
+            or nameof(MainViewModel.IsTodoCollapsed))
         {
-            ApplyNoteCollapsedState();
+            ApplyPaneCollapsedState();
         }
     }
 
-    private void ApplyNoteCollapsedState()
+    private void ApplyPaneCollapsedState()
     {
         if (_viewModel.IsNoteCollapsed)
         {
@@ -226,20 +302,41 @@ public partial class MainWindow : Window
             }
 
             NoteHost.Visibility = Visibility.Collapsed;
-            NoteSplitter.Visibility = Visibility.Collapsed;
             NoteRow.MinHeight = 0;
             NoteRow.Height = new GridLength(0);
-            NoteSplitterRow.Height = new GridLength(0);
-            return;
+        }
+        else
+        {
+            NoteHost.Visibility = Visibility.Visible;
+            NoteRow.MinHeight = 140;
+            NoteRow.Height = _expandedNoteRowHeight.Value > 0
+                ? _expandedNoteRowHeight
+                : new GridLength(1, GridUnitType.Star);
         }
 
-        NoteHost.Visibility = Visibility.Visible;
-        NoteSplitter.Visibility = Visibility.Visible;
-        NoteRow.MinHeight = 140;
-        NoteRow.Height = _expandedNoteRowHeight.Value > 0
-            ? _expandedNoteRowHeight
-            : new GridLength(1, GridUnitType.Star);
-        NoteSplitterRow.Height = new GridLength(8);
+        if (_viewModel.IsTodoCollapsed)
+        {
+            if (TodoRow.Height.Value > 0)
+            {
+                _expandedTodoRowHeight = TodoRow.Height;
+            }
+
+            TodoHost.Visibility = Visibility.Collapsed;
+            TodoRow.MinHeight = 0;
+            TodoRow.Height = new GridLength(0);
+        }
+        else
+        {
+            TodoHost.Visibility = Visibility.Visible;
+            TodoRow.MinHeight = 0;
+            TodoRow.Height = _expandedTodoRowHeight.Value > 0
+                ? _expandedTodoRowHeight
+                : new GridLength(1.65, GridUnitType.Star);
+        }
+
+        var showSplitter = !_viewModel.IsNoteCollapsed && !_viewModel.IsTodoCollapsed;
+        NoteSplitter.Visibility = showSplitter ? Visibility.Visible : Visibility.Collapsed;
+        NoteSplitterRow.Height = showSplitter ? new GridLength(8) : new GridLength(0);
     }
 
     private void NewTodoTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -411,5 +508,47 @@ public partial class MainWindow : Window
         }
 
         return false;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr windowHandle, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr monitorHandle, ref MonitorInfo monitorInfo);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public NativePoint Reserved;
+        public NativePoint MaxSize;
+        public NativePoint MaxPosition;
+        public NativePoint MinTrackSize;
+        public NativePoint MaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRectangle
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MonitorInfo
+    {
+        public uint Size;
+        public NativeRectangle MonitorArea;
+        public NativeRectangle WorkArea;
+        public uint Flags;
     }
 }

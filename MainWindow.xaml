@@ -53,24 +53,38 @@
                                 Padding="8,0"
                                 Margin="0,0,6,0"
                                 Command="{Binding ToggleNoteCollapsedCommand}" />
-                        <Button Content="{Binding ThemeButtonText}"
-                                MinWidth="54"
+                        <Button Content="{Binding TodoToggleButtonText}"
+                                MinWidth="74"
                                 MinHeight="26"
                                 Padding="8,0"
                                 Margin="0,0,6,0"
+                                Command="{Binding ToggleTodoCollapsedCommand}" />
+                        <Button Content="{Binding ThemeButtonIcon}"
+                                Width="30"
+                                MinHeight="26"
+                                Padding="0"
+                                Margin="0,0,6,0"
+                                FontFamily="Segoe UI Symbol"
+                                FontSize="16"
+                                ToolTip="切换明暗主题"
                                 Command="{Binding ToggleThemeCommand}" />
-                        <Button Content="-"
+                        <Button x:Name="MaximizeButton"
+                                Content="□"
                                 Width="30"
                                 MinHeight="26"
                                 Padding="0"
                                 Margin="0,0,4,0"
-                                ToolTip="隐藏"
-                                Click="HideButton_Click" />
-                        <Button Content="x"
+                                FontFamily="Segoe UI Symbol"
+                                FontSize="15"
+                                ToolTip="最大化窗口"
+                                Click="ToggleMaximizeButton_Click" />
+                        <Button Content="×"
                                 Width="30"
                                 MinHeight="26"
                                 Padding="0"
-                                ToolTip="退出程序"
+                                FontFamily="Segoe UI Symbol"
+                                FontSize="16"
+                                ToolTip="隐藏"
                                 Click="CloseButton_Click" />
                     </StackPanel>
                 </Grid>
@@ -80,7 +94,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition x:Name="NoteRow" Height="1*" MinHeight="140" />
                     <RowDefinition x:Name="NoteSplitterRow" Height="8" />
-                    <RowDefinition Height="1.65*" />
+                    <RowDefinition x:Name="TodoRow" Height="1.65*" />
                 </Grid.RowDefinitions>
 
                 <Grid x:Name="NoteHost" Grid.Row="0">
@@ -120,7 +134,8 @@
                               ResizeDirection="Rows"
                               ShowsPreview="True" />
 
-                <Border Grid.Row="2"
+                <Border x:Name="TodoHost"
+                        Grid.Row="2"
                         Background="{DynamicResource PanelBackgroundBrush}"
                         BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1"

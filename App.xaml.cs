@@ -29,7 +29,7 @@ public partial class App : System.Windows.Application
         var viewModel = new MainViewModel(appState, _storage);
         _viewModel = viewModel;
 
-        _mainWindow = new MainWindow(viewModel, ShutdownApplication);
+        _mainWindow = new MainWindow(viewModel);
         _previewWindow = new CurrentTodosPreviewWindow(viewModel);
         _floatingBallWindow = new FloatingBallWindow(viewModel, _previewWindow, ToggleMainWindow, ShutdownApplication);
         _mainWindow.Activated += (_, _) => BringFloatingBallAboveMainWindow();
