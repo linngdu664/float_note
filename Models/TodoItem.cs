@@ -52,6 +52,11 @@ public sealed class TodoItem : ObservableObject
             }
 
             CompletedAt = value ? DateTimeOffset.Now : null;
+
+            if (value)
+            {
+                IsCurrent = false;
+            }
         }
     }
 
